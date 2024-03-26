@@ -7,9 +7,9 @@ import simpledb.transaction.TransactionId;
 import simpledb.common.Type;
 import simpledb.common.DbException;
 import simpledb.storage.DbFileIterator;
+import simpledb.storage.*;
 import simpledb.storage.Tuple;
 import simpledb.storage.TupleDesc;
-import simpledb.storage.HeapPageId;
 
 import java.util.*;
 
@@ -24,8 +24,8 @@ public class SeqScan implements OpIterator {
 
     private int tableId;
     private String tableAlias;
-    private Iterator<Tuple> tuples;
-    private boolean isClosed;
+    private DbFileIterator tuples;
+    private TransactionId tid;
     
     /**
      * Creates a sequential scan over the specified table as a part of the
@@ -44,22 +44,17 @@ public class SeqScan implements OpIterator {
      *            tableAlias.null, or null.null).
      */
     public SeqScan(TransactionId tid, int tableid, String tableAlias) {
-    	Database.getCatalog().getDatabaseFile(tableid);
-    	tuples = new ArrayList<Tuple>().iterator();
+    	tuples = Database.getCatalog().getDatabaseFile(tableid).iterator(tid);    	
+    	this.tid = tid;
+    	tableId = tableid;
     	if (tableAlias == null) {
     		tableAlias = "null";
     	}
     	this.tableAlias = tableAlias;
-    	isClosed = true;
-    	int pageNumber = 0;
-    	try {
-    		while (true) {
-        		Database.getCatalog().getDatabaseFile(tableid).readPage(new HeapPageId(tableId, pageNumber));
-        		pageNumber += 1;
-        	}
-    	} catch (Exception e) {
-    		
-    	}
+    }
+    
+    public TransactionId getTID() {
+    	return tid;
     }
 
     /**
@@ -104,7 +99,7 @@ public class SeqScan implements OpIterator {
     }
 
     public void open() throws DbException, TransactionAbortedException {
-    	isClosed = false;
+    	tuples.open();
     }
 
     /**
@@ -118,7 +113,7 @@ public class SeqScan implements OpIterator {
      *         prefixed with the tableAlias string from the constructor.
      */
     public TupleDesc getTupleDesc() {
-    	TupleDesc tupleDesc = Database.getCatalog().getTupleDesc(tableId);
+    	TupleDesc tupleDesc = Database.getCatalog().getDatabaseFile(tableId).getTupleDesc();
     	Type[] tupleTypes = new Type[tupleDesc.numFields()];
     	String[] updatedTupleFields = new String[tupleDesc.numFields()];
     	for (int i = 0; i < tupleDesc.numFields(); i++) {
@@ -133,28 +128,20 @@ public class SeqScan implements OpIterator {
     }
 
     public boolean hasNext() throws TransactionAbortedException, DbException {
-    	if (isClosed) {
-    		throw new IllegalStateException();
-    	}
         return tuples.hasNext();
     }
 
     public Tuple next() throws NoSuchElementException,
             TransactionAbortedException, DbException {
-    	if (isClosed) {
-    		throw new IllegalStateException();
-    	}
         return tuples.next();
     }
 
     public void close() {
-    	isClosed = true;
+    	tuples.close();
     }
 
     public void rewind() throws DbException, NoSuchElementException,
             TransactionAbortedException {
-    	if (isClosed) {
-    		throw new IllegalStateException();
-    	}
+    	tuples.rewind();
     }
 }

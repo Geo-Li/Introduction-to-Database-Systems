@@ -1,0 +1,9 @@
+CS339 Lab2 Writeup
+
+For this lab, the design decisions were based on which data types to use to store different information. For example, use ArrayList or HashMap to store data. I basically followed the instructions to implement the lab so there is nothing too special to call out. 
+
+I didn't make any change to the API.
+
+The missing part for my code is the bug from ScanTest, which somehow read a null value from BufferPool. 
+
+I spend in total 4 days to do this lab. I found this lab is difficult when I need to deal with inherientence in Java. For example, HeapFile implements DbFile, which asks me to override or complete some methods. Also, this lab asks us to call different methods (or connect them) from different sections. For example, call BufferPool.getPage from HeapFile.iterator; call catalog from BufferPool. The confusing part for this lab is the hint provided in the sheet, which could be further elaborated.

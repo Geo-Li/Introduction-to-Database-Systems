@@ -23,16 +23,20 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class Catalog {
 
-	private Map<String, DbFile> catalog;
-    private Map<String, String> primaryKey;
+	private Map<Integer, String> catalog;
+    private Map<Integer, String> primaryKey;
+    private Map<Integer, DbFile> files;
+    private Map<String, Stack<Integer>> nameStack;
 	
     /**
      * Constructor.
      * Creates a new, empty catalog.
      */
     public Catalog() {
-    	catalog = new HashMap<String, DbFile>();
-    	primaryKey = new HashMap<String, String>();
+    	catalog = new HashMap<Integer, String>();
+    	primaryKey = new HashMap<Integer, String>();
+    	files = new HashMap<Integer, DbFile>();
+    	nameStack = new HashMap<String, Stack<Integer>>();
     }
     
 
@@ -46,8 +50,13 @@ public class Catalog {
      * @param pkeyField the name of the primary key field
      */
     public void addTable(DbFile file, String name, String pkeyField) {
-    	catalog.put(name, file);
-    	primaryKey.put(name, pkeyField);
+    	files.put(file.getId(), file);
+    	catalog.put(file.getId(), name);
+    	primaryKey.put(file.getId(), pkeyField);
+    	if (!nameStack.containsKey(name)) {
+    		nameStack.put(name, new Stack<Integer>());
+    	}
+    	nameStack.get(name).push(file.getId());
     }
 
     public void addTable(DbFile file, String name) {
@@ -70,10 +79,12 @@ public class Catalog {
      * @throws NoSuchElementException if the table doesn't exist
      */
     public int getTableId(String name) throws NoSuchElementException {
-    	if (catalog.containsKey(name)) {
-    		return catalog.get(name).getId();
+    	for (String n : nameStack.keySet()) {
+    		if (n.equals(name)) {
+    			return nameStack.get(name).peek();
+    		}
     	}
-        throw new NoSuchElementException();
+    	throw new NoSuchElementException();
     }
 
     /**
@@ -83,12 +94,7 @@ public class Catalog {
      * @throws NoSuchElementException if the table doesn't exist
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
-    	for (String key : catalog.keySet()) {
-    		if (catalog.get(key).getId() == tableid) {
-    			return catalog.get(key).getTupleDesc();
-    		}
-    	}
-        throw new NoSuchElementException();
+    	return files.get(tableid).getTupleDesc();
     }
 
     /**
@@ -98,38 +104,19 @@ public class Catalog {
      *     function passed to addTable
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
-    	for (String key : catalog.keySet()) {
-    		if (catalog.get(key).getId() == tableid) {
-    			return catalog.get(key);
-    		}
-    	}
-        throw new NoSuchElementException();
+    	return files.get(tableid);
     }
 
     public String getPrimaryKey(int tableid) throws NoSuchElementException {
-    	for (String key : catalog.keySet()) {
-    		if (catalog.get(key).getId() == tableid) {
-    			return primaryKey.get(key);
-    		}
-    	}
-        throw new NoSuchElementException();
+    	return primaryKey.get(tableid);
     }
 
     public Iterator<Integer> tableIdIterator() {
-    	ArrayList<Integer> tableIds = new ArrayList<Integer>();
-    	for (String key : catalog.keySet()) {
-    		tableIds.add(catalog.get(key).getId());
-    	}
-        return tableIds.iterator();
+    	return catalog.keySet().iterator();
     }
 
     public String getTableName(int id) throws NoSuchElementException {
-    	for (String key : catalog.keySet()) {
-    		if (catalog.get(key).getId() == id) {
-    			return key;
-    		}
-    	}
-        throw new NoSuchElementException();
+    	return catalog.get(id);
     }
     
     /** Delete all tables from the catalog */

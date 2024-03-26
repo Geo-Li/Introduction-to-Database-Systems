@@ -50,7 +50,6 @@ public class TupleTest extends SimpleDbTestBase {
         tup1.setRecordId(rid1);
 
 	try {
-//		System.out.println(tup1.getRecordId());
 	    assertEquals(rid1, tup1.getRecordId());
 	} catch (java.lang.UnsupportedOperationException e) {
 		//rethrow the exception with an explanation

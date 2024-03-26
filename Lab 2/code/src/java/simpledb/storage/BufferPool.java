@@ -83,7 +83,7 @@ public class BufferPool {
     		return bufferPool.get(pid);
     	} else {
     		if (bufferPool.size() >= pageSize) {
-    			throw new DbException("Can't load more pages for the memory");
+    			throw new DbException("Can't load more pages");
     		} else {
     			Page newPage = Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid);
     			bufferPool.put(pid, newPage);

@@ -10,6 +10,7 @@ import simpledb.transaction.TransactionId;
 
 import java.io.*;
 import java.util.*;
+import java.lang.Math;
 
 /**
  * HeapFile is an implementation of a DbFile that stores a collection of tuples
@@ -24,6 +25,7 @@ import java.util.*;
 public class HeapFile implements DbFile {
 
 	private File file;
+	private RandomAccessFile heapFile;
 	private TupleDesc tupleDesc;
 	
     /**
@@ -36,6 +38,11 @@ public class HeapFile implements DbFile {
     public HeapFile(File f, TupleDesc td) {
     	file = f;
     	tupleDesc = td;
+    	try {
+    		heapFile = new RandomAccessFile(file, "r");
+    	} catch (Exception e) {
+    		
+    	}
     }
 
     /**
@@ -68,12 +75,24 @@ public class HeapFile implements DbFile {
     public TupleDesc getTupleDesc() {
     	return tupleDesc;
     }
+    
 
     // see DbFile.java for javadocs
     public Page readPage(PageId pid) {
-    	Catalog catalog = Database.getCatalog();
-    	Page newPage = catalog.getDatabaseFile(pid.getTableId()).readPage(pid);
-        return newPage;
+    	try {
+        	RandomAccessFile heapFile = new RandomAccessFile(file, "r");
+        	int pageNumber = pid.getPageNumber();
+        	// set the space for the new page
+        	int pageSize = Database.getBufferPool().getPageSize();
+        	byte[] content = new byte[pageSize];
+        	heapFile.seek(pageSize * pageNumber);
+        	heapFile.read(content);
+        	HeapPage page = new HeapPage((HeapPageId)pid, content);
+        	heapFile.close();
+        	return page;
+    	} catch (Exception e) {
+    		return null;
+    	}
     }
 
     // see DbFile.java for javadocs
@@ -86,7 +105,11 @@ public class HeapFile implements DbFile {
      * Returns the number of pages in this HeapFile.
      */
     public int numPages() {
-        return 1;
+    	try {
+    		return (int)Math.ceil(heapFile.length() / Database.getBufferPool().getPageSize());
+    	} catch (Exception e) {
+    		return 0;
+    	}
     }
 
     // see DbFile.java for javadocs
@@ -107,23 +130,56 @@ public class HeapFile implements DbFile {
 
     // see DbFile.java for javadocs
     public DbFileIterator iterator(TransactionId tid) {
-    	ArrayList<Page> dbFiles = new ArrayList<Page>();
-    	Iterator<Integer> tableIds = Database.getCatalog().tableIdIterator();
-    	while (tableIds.hasNext()) {
-    		int tableId = tableIds.next();
-    		int pageNumber = 0;
-    		try {
-    			while (true) {
-        			Page page = Database.getBufferPool().getPage(tid, new HeapPageId(tableId, pageNumber), null);
-        			dbFiles.add(page);
-        			pageNumber += 1;
-        		}
-    		} catch (Exception e) {
-    			
+    	return new DbFileIterator() {
+    		private Iterator<Tuple> tuples;
+    		private int pageNumber = -1;
+    		
+    		@Override
+            public void open() throws DbException, TransactionAbortedException {
+    			pageNumber = 0;
+    			tuples = ((HeapPage)Database.getBufferPool().getPage(tid, new HeapPageId(getId(), pageNumber), Permissions.READ_ONLY)).iterator();
     		}
-    	}
-        return (DbFileIterator)dbFiles.iterator();
-    }
+    		
+    		@Override
+    		public boolean hasNext()
+    		        throws DbException, TransactionAbortedException {
+    			// Check if there is one more page to read
+    			if (pageNumber < 0) {
+    				return false;
+    			}
+    			if (tuples.hasNext())
+    			{
+    				return true;
+    			}
+    			while (!tuples.hasNext()) {
+    				if (pageNumber >= numPages() - 1) {
+    					return false;
+    				}
+    				pageNumber += 1;
+    				tuples = ((HeapPage)Database.getBufferPool().getPage(tid, new HeapPageId(getId(), pageNumber), Permissions.READ_ONLY)).iterator();
+    			}
+    			return true;
+    		}
 
+    		@Override
+		    public Tuple next()
+		        throws DbException, TransactionAbortedException, NoSuchElementException {
+    			if (pageNumber < 0) {
+    				throw new NoSuchElementException();
+    			}
+    			return tuples.next();
+    		}
+
+    		@Override
+		    public void rewind() throws DbException, TransactionAbortedException {
+    			open();
+    		}
+
+    		@Override
+		    public void close() {
+    			pageNumber = -1;
+    		}
+    	};
+    }
 }
 

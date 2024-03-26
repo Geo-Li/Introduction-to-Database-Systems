@@ -72,7 +72,8 @@ public class RecordId implements Serializable {
      */
     @Override
     public int hashCode() {
-    	return Integer.parseInt(Integer.toString(pageId.hashCode()) + Integer.toString(tupleNumber));
+    	return pageId.hashCode() + tupleNumber;
+//    	return Integer.parseInt(Integer.toString(pageId.hashCode()) + Integer.toString(tupleNumber));
     }
 
 }
